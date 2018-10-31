@@ -1,0 +1,93 @@
+
+### Halloween Data Analysis
+
+library(tidyverse)
+
+setwd("Z:/Halloween")
+
+# data sourced from "https://www.kaggle.com/PromptCloudHQ/imdb-horror-movie-dataset"
+
+data <- read.csv("IMDB Horror movies.csv", stringsAsFactors = FALSE)
+
+### Let's have a clean
+
+data <- data %>% mutate(Budget = gsub("[^0-9\\.]", "", Budget) %>% as.numeric(),
+                        Release.Country = toupper(Release.Country) %>% as.factor(),
+                        Language = toupper(Language) %>% as.factor()) %>% filter(!is.na(Review.Rating))
+
+
+### What's the relationship? 
+
+countries <- data %>% 
+  mutate(Release.Country = as.character(Release.Country)) %>%
+  group_by(Release.Country) %>%
+  summarise(count = n()) %>%
+  arrange(desc(count)) %>%
+  top_n(5) %>%
+  ungroup %>%
+  select(Release.Country) %>%
+  unlist()
+
+options(scipen=999)
+
+### Separate budget types
+
+data %>% 
+  filter(Release.Country %in% countries, Budget < 150000000, Budget > 500000) %>%
+  ggplot(aes(x = Budget, y = Review.Rating)) +
+  geom_point(aes(colour = Release.Country)) +
+  theme_bw() +
+  scale_x_continuous(labels = scales::dollar)
+
+data %>% 
+  filter(Release.Country %in% countries, Budget < 500000) %>%
+  ggplot(aes(x = Budget, y = Review.Rating)) +
+  geom_point(aes(colour = Release.Country)) +
+  theme_bw() +
+  scale_x_continuous(labels = scales::dollar) +
+  geom_smooth(method = "gam")
+
+### Try ggimage
+
+library(ggimage)
+library(png)
+library(grid)
+library(magick)
+library(cowplot)
+
+image <- "https://cdn0.iconfinder.com/data/icons/yooicons_set09_halloween/512/pumpkin.png"
+
+### Base plot
+
+data %>% 
+  mutate(image = image) %>%
+  filter(Release.Country %in% countries, Budget < 150000000, Budget > 500000) %>%
+  ggplot(aes(x = Budget, y = Review.Rating)) +
+  geom_image(aes( image = image), alpha = .6) +
+  theme_bw() +
+  scale_x_continuous(labels = scales::dollar) +
+  labs(y = "IMDB Average Rating",
+       title = "Scatterplot of IMDB Ratings and Budgets for Scary Movies",
+       subtitle = "Looks like you can scare people on a budget") 
+
+### Add background
+
+halloween <- image_read("http://www.elecom.co.jp/pickup/paper/autumn2015/images/halloween/castle.png")
+
+fig <- image_graph(width = 700, height = 600, res = 96)
+data %>% 
+  mutate(image = image) %>%
+  filter(Release.Country %in% countries, Budget < 150000000, Budget > 500000) %>%
+  ggplot(aes(x = Budget, y = Review.Rating)) +
+  geom_image(aes( image = image), alpha = .6) +
+  theme_bw() +
+  scale_x_continuous(labels = scales::dollar) +
+  labs(y = "IMDB Average Rating",
+       title = "Scatterplot of IMDB Ratings and Budgets for Scary Movies",
+       subtitle = "Looks like you can scare people on a budget") 
+dev.off()
+
+out <- image_composite(fig, image_scale(halloween, "400"), offset = "+282+336")
+print(out)
+
+### Happy Halloween!
